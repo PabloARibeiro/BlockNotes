@@ -3,14 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <title>BlockNotes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="controles-principais" style="display: flex; gap: 10px; margin-bottom: 15px;">
-        <button id="btn-add"> + Adicionar Bloco</button>
-        <button id="btn-exportar">Exportar (Salvar .json)</button>
-        <button id="btn-importar">Importar (Carregar .json)</button>
+    <div id="controles-principais">
+        <button id="btn-add" class="btn-icone" title="Novo Bloco">
+            <i class="fa-regular fa-window-maximize"></i>
+            <i class="fa-solid fa-circle-plus icone-mais"></i>
+        </button>
+        
+        <button id="btn-exportar" class="btn-icone" title="Exportar blocos">
+            <i class="fa-solid fa-file-export"></i>
+        </button>
+        
+        <button id="btn-importar" class="btn-icone" title="Importar blocos">
+            <i class="fa-solid fa-file-import"></i>
+        </button>
+        
         <input type="file" id="input-arquivo" accept=".json" style="display: none;">
     </div>
     <div id="area-trabalho"></div>
