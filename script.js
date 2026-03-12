@@ -128,11 +128,39 @@ function criarBlocoNaTela(dados = null) {
         
         document.onmousemove = (ev) => {
             ev.preventDefault();
+            
+            // 1. Calcula para onde o usuário quer levar o bloco
             const movimentoX = ev.clientX - inicioX;
             const movimentoY = ev.clientY - inicioY;
-            // Durante o arrasto, usamos pixels para o movimento ficar suave
-            bloco.style.left = (leftInicial + movimentoX) + 'px';
-            bloco.style.top = (topInicial + movimentoY) + 'px';
+            let novaPosicaoEsquerda = leftInicial + movimentoX;
+            let novaPosicaoTopo = topInicial + movimentoY;
+
+            // 2. Calcula os limites máximos do Canvas
+            // Subtraímos o tamanho do bloco para que ele não passe da borda direita/inferior
+            const limiteMaximoEsquerda = area.clientWidth - bloco.offsetWidth;
+            const limiteMaximoTopo = area.clientHeight - bloco.offsetHeight;
+
+            // 3. Aplica as "Paredes Invisíveis" (Travas)
+            // Trava na Esquerda
+            if (novaPosicaoEsquerda < 0) {
+                novaPosicaoEsquerda = 0;
+            }
+            // Trava na Direita
+            if (novaPosicaoEsquerda > limiteMaximoEsquerda) {
+                novaPosicaoEsquerda = limiteMaximoEsquerda;
+            }
+            // Trava no Topo
+            if (novaPosicaoTopo < 0) {
+                novaPosicaoTopo = 0;
+            }
+            // Trava Embaixo
+            if (novaPosicaoTopo > limiteMaximoTopo) {
+                novaPosicaoTopo = limiteMaximoTopo;
+            }
+
+            // 4. Aplica a posição corrigida ao bloco na tela
+            bloco.style.left = novaPosicaoEsquerda + 'px';
+            bloco.style.top = novaPosicaoTopo + 'px';
         };
         
         document.onmouseup = () => {
