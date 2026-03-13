@@ -27,7 +27,6 @@ function salvarBlocos() {
             width: larguraRelativa + '%',
             height: alturaRelativa + '%',
             fundo: bloco.querySelector('.cor-fundo').value,
-            borda: bloco.querySelector('.cor-borda').value,
             texto: bloco.querySelector('.texto').innerHTML
         });
     });
@@ -62,26 +61,26 @@ function criarBlocoNaTela(dados = null) {
     const bloco = document.createElement('div');
     bloco.className = 'bloco';
     
-    // Agora os valores padrão de um bloco novo são em Porcentagem (%)
     bloco.style.top = dados ? dados.top : '10%';
     bloco.style.left = dados ? dados.left : '10%';
     bloco.style.width = dados ? dados.width : '25%';
     bloco.style.height = dados ? dados.height : '20%';
     
+    // Removemos a cor da borda daqui
     const corFundoPadrao = dados ? dados.fundo : '#ffffff';
-    const corBordaPadrao = dados ? dados.borda : '#000000';
     const textoPadrao = dados ? dados.texto : '';
 
     bloco.style.backgroundColor = corFundoPadrao;
-    bloco.style.borderColor = corBordaPadrao;
 
+    // Removemos o input da borda e colocamos o ícone de lixeira no botão de excluir
     bloco.innerHTML = `
         <div class="cabecalho">
             <div class="controles-cor">
-                <input type="color" class="cor-fundo" value="${corFundoPadrao}" title="Mudar Fundo">
-                <input type="color" class="cor-borda" value="${corBordaPadrao}" title="Mudar Borda">
+                <input type="color" class="cor-fundo" value="${corFundoPadrao}" title="Mudar Cor do Fundo">
             </div>
-            <button class="btn-excluir">X</button>
+            <button class="btn-excluir" title="Excluir Bloco">
+                <i class="fa-solid fa-trash"></i>
+            </button>
         </div>
         <div class="texto" contenteditable="true">${textoPadrao}</div>
     `;
@@ -97,28 +96,24 @@ function criarBlocoNaTela(dados = null) {
         salvarBlocos(); 
     });
     
-    bloco.querySelector('.cor-borda').addEventListener('input', (e) => {
-        bloco.style.borderColor = e.target.value;
-        salvarBlocos(); 
-    });
+    // (O evento da cor-borda foi apagado daqui)
 
     bloco.querySelector('.texto').addEventListener('input', () => {
         salvarBlocos(); 
     });
 
     bloco.addEventListener('mouseup', () => {
-        // Quando soltar o redimensionamento, converte pra % na hora
         bloco.style.width = (bloco.offsetWidth / area.clientWidth) * 100 + '%';
         bloco.style.height = (bloco.offsetHeight / area.clientHeight) * 100 + '%';
         salvarBlocos(); 
     });
 
-    // Lógica de Arrastar
+    // Lógica de Arrastar (Mantida igual)
     const cabecalho = bloco.querySelector('.cabecalho');
     let inicioX, inicioY, leftInicial, topInicial;
     
     cabecalho.onmousedown = (evento) => {
-        if(evento.target.tagName === 'INPUT' || evento.target.tagName === 'BUTTON') return;
+        if(evento.target.tagName === 'INPUT' || evento.target.tagName === 'BUTTON' || evento.target.tagName === 'I') return;
         evento.preventDefault();
         
         inicioX = evento.clientX; 
@@ -128,37 +123,19 @@ function criarBlocoNaTela(dados = null) {
         
         document.onmousemove = (ev) => {
             ev.preventDefault();
-            
-            // 1. Calcula para onde o usuário quer levar o bloco
             const movimentoX = ev.clientX - inicioX;
             const movimentoY = ev.clientY - inicioY;
             let novaPosicaoEsquerda = leftInicial + movimentoX;
             let novaPosicaoTopo = topInicial + movimentoY;
 
-            // 2. Calcula os limites máximos do Canvas
-            // Subtraímos o tamanho do bloco para que ele não passe da borda direita/inferior
             const limiteMaximoEsquerda = area.clientWidth - bloco.offsetWidth;
             const limiteMaximoTopo = area.clientHeight - bloco.offsetHeight;
 
-            // 3. Aplica as "Paredes Invisíveis" (Travas)
-            // Trava na Esquerda
-            if (novaPosicaoEsquerda < 0) {
-                novaPosicaoEsquerda = 0;
-            }
-            // Trava na Direita
-            if (novaPosicaoEsquerda > limiteMaximoEsquerda) {
-                novaPosicaoEsquerda = limiteMaximoEsquerda;
-            }
-            // Trava no Topo
-            if (novaPosicaoTopo < 0) {
-                novaPosicaoTopo = 0;
-            }
-            // Trava Embaixo
-            if (novaPosicaoTopo > limiteMaximoTopo) {
-                novaPosicaoTopo = limiteMaximoTopo;
-            }
+            if (novaPosicaoEsquerda < 0) novaPosicaoEsquerda = 0;
+            if (novaPosicaoEsquerda > limiteMaximoEsquerda) novaPosicaoEsquerda = limiteMaximoEsquerda;
+            if (novaPosicaoTopo < 0) novaPosicaoTopo = 0;
+            if (novaPosicaoTopo > limiteMaximoTopo) novaPosicaoTopo = limiteMaximoTopo;
 
-            // 4. Aplica a posição corrigida ao bloco na tela
             bloco.style.left = novaPosicaoEsquerda + 'px';
             bloco.style.top = novaPosicaoTopo + 'px';
         };
@@ -166,11 +143,8 @@ function criarBlocoNaTela(dados = null) {
         document.onmouseup = () => {
             document.onmousemove = null;
             document.onmouseup = null;
-            
-            // O PULO DO GATO: Assim que solta o bloco, converte a posição de pixels para %
             bloco.style.left = (bloco.offsetLeft / area.clientWidth) * 100 + '%';
             bloco.style.top = (bloco.offsetTop / area.clientHeight) * 100 + '%';
-            
             salvarBlocos();
         };
     };
