@@ -63,10 +63,16 @@ class Bloco {
     }
 
     aplicarEventosGerais() {
-        // Traz o bloco para frente ao clicar (Correção do Bug de Z-Index)
-        this.elemento.addEventListener('mousedown', () => {
-            this.elemento.style.zIndex = zIndexGlobal++;
-            salvarBlocos();
+        this.elemento.addEventListener('mousedown', (e) => {
+            // Correção Firefox: Ignora a mudança de z-index se o alvo for o input de cor
+            if (e.target.type === 'color') return;
+            
+            if (this.elemento.style.zIndex != zIndexGlobal) {
+                this.elemento.style.zIndex = zIndexGlobal++;
+                // Removemos o salvarBlocos() daqui. É um desperdício de processamento 
+                // reescrever todo o localStorage apenas por trazer o bloco pra frente.
+                // O salvamento do novo z-index ocorrerá naturalmente no mouseup.
+            }
         });
 
         this.elemento.querySelector('.btn-excluir').onclick = () => { 
@@ -74,10 +80,14 @@ class Bloco {
             salvarBlocos(); 
         };
         
-        this.elemento.querySelector('.cor-fundo').addEventListener('input', (e) => { 
+        // Adicionamos 'change' como redundância ao 'input' para máxima compatibilidade entre navegadores
+        const inputCor = this.elemento.querySelector('.cor-fundo');
+        const atualizarCor = (e) => { 
             this.elemento.style.backgroundColor = e.target.value; 
             salvarBlocos(); 
-        });
+        };
+        inputCor.addEventListener('input', atualizarCor);
+        inputCor.addEventListener('change', atualizarCor);
         
         this.elemento.addEventListener('mouseup', () => {
             this.elemento.style.width = (this.elemento.offsetWidth / this.area.clientWidth) * 100 + '%';
