@@ -1,6 +1,35 @@
 // VARIÁVEL GLOBAL PARA GERENCIAR A PROFUNDIDADE (Z-INDEX)
 let zIndexGlobal = 1;
 
+// --- CAMADA DE PERSISTÊNCIA (STORAGE SERVICE) ---
+class StorageService {
+    static CHAVE_ARMAZENAMENTO = 'meusBlocosSalvos';
+
+    static salvar(dados) {
+        try {
+            const json = JSON.stringify(dados);
+            localStorage.setItem(this.CHAVE_ARMAZENAMENTO, json);
+            return true;
+        } catch (erro) {
+            console.error("Falha na persistência de dados:", erro);
+            if (erro.name === 'QuotaExceededError') {
+                alert("Erro Crítico: O armazenamento local excedeu a quota permitida (aprox. 5MB). Os blocos com desenhos muito grandes não puderam ser guardados.");
+            }
+            return false;
+        }
+    }
+
+    static carregar() {
+        try {
+            const dados = localStorage.getItem(this.CHAVE_ARMAZENAMENTO);
+            return dados ? JSON.parse(dados) : null;
+        } catch (erro) {
+            console.error("Falha ao ler dados de persistência:", erro);
+            return null;
+        }
+    }
+}
+
 // --- ARQUITETURA DE BLOCOS (OOP) ---
 
 // 1. Classe Base (Superclasse)
@@ -303,45 +332,46 @@ class BlocoFactory {
 function salvarBlocos() {
     const area = document.getElementById('area-trabalho');
     
-    // Varre o DOM e utiliza o método da instância vinculada a cada elemento (Polimorfismo)
+    // O mapeamento extrai a estrutura de dados independentemente da persistência
     const arrayDeDados = Array.from(area.children).map(elemento => {
         return elemento.__blocoInstance.extrairDadosParaSalvar(area.clientWidth, area.clientHeight);
     });
 
-    try {
-        localStorage.setItem('meusBlocosSalvos', JSON.stringify(arrayDeDados));
-    } catch (e) {
-        // Correção Parcial: Prevenção contra estouro de memória (QuotaExceededError)
-        alert("Atenção: A memória local atingiu seu limite (aprox. 5MB). Os últimos desenhos não puderam ser salvos.");
-    }
+    // Delegamos a responsabilidade de guardar ao StorageService
+    StorageService.salvar(arrayDeDados);
 }
 
 function carregarBlocos() {
-    const dadosSalvos = localStorage.getItem('meusBlocosSalvos');
-    if (dadosSalvos) {
-        const arrayDeDados = JSON.parse(dadosSalvos);
+    // Delegamos a responsabilidade de leitura ao StorageService
+    const arrayDeDados = StorageService.carregar();
+    
+    if (arrayDeDados && Array.isArray(arrayDeDados)) {
         arrayDeDados.forEach(dadoDoBloco => {
             BlocoFactory.criar(dadoDoBloco);
         });
     }
 }
 
-// Inicialização
-document.getElementById('btn-add').addEventListener('click', () => {
-    BlocoFactory.criar();
-    salvarBlocos();
-});
-
-carregarBlocos();
-
-// --- LÓGICA DE EXPORTAR E IMPORTAR ---
+// --- VARIÁVEIS DE CONTROLO DA INTERFACE ---
+const btnAdd = document.getElementById('btn-add');
 const btnExportar = document.getElementById('btn-exportar');
 const btnImportar = document.getElementById('btn-importar');
 const inputArquivo = document.getElementById('input-arquivo');
 
+// --- INICIALIZAÇÃO ---
+btnAdd.addEventListener('click', () => {
+    BlocoFactory.criar();
+    salvarBlocos();
+});
+
+carregarBlocos(); // Carrega os blocos guardados ao abrir a página
+
+// --- LÓGICA DE EXPORTAR E IMPORTAR ---
 btnExportar.addEventListener('click', () => {
     salvarBlocos(); 
-    const dadosSalvos = localStorage.getItem('meusBlocosSalvos');
+    
+    // O exportar agora usa a chave centralizada do serviço
+    const dadosSalvos = localStorage.getItem(StorageService.CHAVE_ARMAZENAMENTO);
     
     if (!dadosSalvos || dadosSalvos === '[]') {
         alert("Não há blocos na tela para exportar!");
@@ -359,32 +389,20 @@ btnExportar.addEventListener('click', () => {
     URL.revokeObjectURL(urlTemporaria);
 });
 
+// O seu código do btnImportar continua aqui para baixo...
 btnImportar.addEventListener('click', () => {
     inputArquivo.click(); 
 });
 
-inputArquivo.addEventListener('change', (evento) => {
-    const arquivoSelecionado = evento.target.files[0];
-    if (!arquivoSelecionado) return; 
-
-    const leitor = new FileReader();
-
-    leitor.onload = (e) => {
-        try {
-            const blocosImportados = JSON.parse(e.target.result);
-            document.getElementById('area-trabalho').innerHTML = ''; // Limpa a área
-            
-            blocosImportados.forEach(dadoDoBloco => {
-                BlocoFactory.criar(dadoDoBloco);
+// --- REGISTO DO SERVICE WORKER (PWA) ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('Service Worker registado com sucesso no escopo:', registration.scope);
+            })
+            .catch(error => {
+                console.error('Falha no registo do Service Worker:', error);
             });
-            
-            salvarBlocos(); 
-            
-        } catch (erro) {
-            alert("Erro ao importar: O arquivo selecionado não é válido ou está corrompido.");
-        }
-        inputArquivo.value = ''; 
-    };
-
-    leitor.readAsText(arquivoSelecionado);
-});
+    });
+}
