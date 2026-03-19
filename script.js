@@ -406,3 +406,44 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
+
+// --- LÓGICA DE INSTALAÇÃO DO PWA ---
+let eventoPromptInstalacao = null;
+const btnInstalar = document.getElementById('btn-instalar');
+
+// O navegador dispara este evento quando reconhece que o PWA cumpre os requisitos
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Impede o mini-infobar padrão do navegador de aparecer imediatamente
+    e.preventDefault();
+    // Guarda o evento para ser disparado depois
+    eventoPromptInstalacao = e;
+    // Mostra o nosso botão na interface
+    if (btnInstalar) btnInstalar.style.display = 'block';
+});
+
+if (btnInstalar) {
+    btnInstalar.addEventListener('click', async () => {
+        if (!eventoPromptInstalacao) return;
+        
+        // Mostra o prompt nativo de instalação do sistema operativo
+        eventoPromptInstalacao.prompt();
+        
+        // Aguarda a resposta do utilizador
+        const { outcome } = await eventoPromptInstalacao.userChoice;
+        console.log(`Escolha de instalação do utilizador: ${outcome}`);
+        
+        // Se aceitou, esconde o botão
+        if (outcome === 'accepted') {
+            btnInstalar.style.display = 'none';
+        }
+        
+        // Limpa a variável, pois o prompt só pode ser usado uma vez
+        eventoPromptInstalacao = null;
+    });
+}
+
+// Opcional: Esconder o botão se a aplicação já foi instalada com sucesso
+window.addEventListener('appinstalled', () => {
+    if (btnInstalar) btnInstalar.style.display = 'none';
+    console.log('BlockNotes foi instalado com sucesso.');
+});
