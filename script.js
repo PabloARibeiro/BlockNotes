@@ -31,8 +31,6 @@ class StorageService {
 }
 
 // --- ARQUITETURA DE BLOCOS (OOP) ---
-
-// 1. Classe Base (Superclasse)
 class Bloco {
     constructor(dados, tipo) {
         this.tipo = tipo;
@@ -43,7 +41,6 @@ class Bloco {
         this.elemento.className = 'bloco';
         this.elemento.dataset.tipo = tipo;
         
-        // Vincula a instância da classe ao elemento DOM (crucial para o salvamento dinâmico)
         this.elemento.__blocoInstance = this;
 
         this.configurarEstilosIniciais();
@@ -63,7 +60,6 @@ class Bloco {
         this.corFundoPadrao = this.dados.fundo || '#ffffff';
         this.elemento.style.backgroundColor = this.corFundoPadrao;
         
-        // Mantém o z-index correto se for carregado da memória
         if (this.dados.zIndex) {
             this.elemento.style.zIndex = this.dados.zIndex;
             if (this.dados.zIndex >= zIndexGlobal) zIndexGlobal = this.dados.zIndex + 1;
@@ -83,24 +79,19 @@ class Bloco {
                 </button>
             </div>
         `;
-        this.elemento.innerHTML = cabecalho + this.getConteudoHTML();
+        this.elemento.innerHTML = cabecalho + this.getConteudoHTML() + '<div class="redimensionador"></div>';
+        this.aplicarRedimensionamento();
     }
 
-    // Método Abstrato - Deve ser implementado nas classes filhas
     getConteudoHTML() { 
         throw new Error("O método getConteudoHTML deve ser implementado nas subclasses.");
     }
 
     aplicarEventosGerais() {
         this.elemento.addEventListener('mousedown', (e) => {
-            // Correção Firefox: Ignora a mudança de z-index se o alvo for o input de cor
             if (e.target.type === 'color') return;
-            
             if (this.elemento.style.zIndex != zIndexGlobal) {
                 this.elemento.style.zIndex = zIndexGlobal++;
-                // Removemos o salvarBlocos() daqui. É um desperdício de processamento 
-                // reescrever todo o localStorage apenas por trazer o bloco pra frente.
-                // O salvamento do novo z-index ocorrerá naturalmente no mouseup.
             }
         });
 
@@ -109,7 +100,6 @@ class Bloco {
             salvarBlocos(); 
         };
         
-        // Adicionamos 'change' como redundância ao 'input' para máxima compatibilidade entre navegadores
         const inputCor = this.elemento.querySelector('.cor-fundo');
         const atualizarCor = (e) => { 
             this.elemento.style.backgroundColor = e.target.value; 
@@ -117,34 +107,37 @@ class Bloco {
         };
         inputCor.addEventListener('input', atualizarCor);
         inputCor.addEventListener('change', atualizarCor);
-        
-        this.elemento.addEventListener('mouseup', () => {
-            this.elemento.style.width = (this.elemento.offsetWidth / this.area.clientWidth) * 100 + '%';
-            this.elemento.style.height = (this.elemento.offsetHeight / this.area.clientHeight) * 100 + '%';
-            salvarBlocos(); 
-        });
     }
 
-    // Pode ser implementado nas classes filhas
     aplicarEventosEspecificos() {}
+
+    obterCoordenadas(evento) {
+        if (evento.touches && evento.touches.length > 0) {
+            return { x: evento.touches[0].clientX, y: evento.touches[0].clientY };
+        }
+        return { x: evento.clientX, y: evento.clientY };
+    }
 
     aplicarArrastar() {
         const cabecalho = this.elemento.querySelector('.cabecalho');
         let inicioX, inicioY, leftInicial, topInicial;
         
-        cabecalho.onmousedown = (evento) => {
+        const iniciarArrasto = (evento) => {
             if(['INPUT', 'BUTTON', 'I'].includes(evento.target.tagName)) return;
-            evento.preventDefault();
+            if (evento.type === 'touchstart') evento.preventDefault(); 
             
-            inicioX = evento.clientX; 
-            inicioY = evento.clientY;
+            const pos = this.obterCoordenadas(evento);
+            inicioX = pos.x; 
+            inicioY = pos.y;
             leftInicial = this.elemento.offsetLeft; 
             topInicial = this.elemento.offsetTop;
             
-            const onMouseMove = (ev) => {
-                ev.preventDefault();
-                let novaPosEsquerda = leftInicial + (ev.clientX - inicioX);
-                let novaPosTopo = topInicial + (ev.clientY - inicioY);
+            const onMove = (ev) => {
+                if (ev.type === 'touchmove') ev.preventDefault();
+                const posAtual = this.obterCoordenadas(ev);
+                
+                let novaPosEsquerda = leftInicial + (posAtual.x - inicioX);
+                let novaPosTopo = topInicial + (posAtual.y - inicioY);
 
                 const maxEsquerda = this.area.clientWidth - this.elemento.offsetWidth;
                 const maxTopo = this.area.clientHeight - this.elemento.offsetHeight;
@@ -153,19 +146,73 @@ class Bloco {
                 this.elemento.style.top = Math.max(0, Math.min(novaPosTopo, maxTopo)) + 'px';
             };
             
-            const onMouseUp = () => {
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
+            const onEnd = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('touchmove', onMove, { passive: false });
+                document.removeEventListener('mouseup', onEnd);
+                document.removeEventListener('touchend', onEnd);
                 
                 this.elemento.style.left = (this.elemento.offsetLeft / this.area.clientWidth) * 100 + '%';
                 this.elemento.style.top = (this.elemento.offsetTop / this.area.clientHeight) * 100 + '%';
                 salvarBlocos();
             };
 
-            // Listener anexado ao document evita travamentos se o mouse sair da área do cabeçalho
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
         };
+
+        cabecalho.addEventListener('mousedown', iniciarArrasto);
+        cabecalho.addEventListener('touchstart', iniciarArrasto, { passive: false });
+    }
+
+    aplicarRedimensionamento() {
+        const puxador = this.elemento.querySelector('.redimensionador');
+        if (!puxador) return;
+
+        let larguraInicial, alturaInicial, inicioX, inicioY;
+
+        const iniciarRedimensionamento = (evento) => {
+            if (evento.type === 'touchstart') evento.preventDefault();
+            evento.stopPropagation();
+
+            const pos = this.obterCoordenadas(evento);
+            inicioX = pos.x;
+            inicioY = pos.y;
+            larguraInicial = this.elemento.offsetWidth;
+            alturaInicial = this.elemento.offsetHeight;
+
+            const onMove = (ev) => {
+                if (ev.type === 'touchmove') ev.preventDefault();
+                const posAtual = this.obterCoordenadas(ev);
+
+                const novaLargura = larguraInicial + (posAtual.x - inicioX);
+                const novaAltura = alturaInicial + (posAtual.y - inicioY);
+
+                this.elemento.style.width = Math.max(150, novaLargura) + 'px';
+                this.elemento.style.height = Math.max(100, novaAltura) + 'px';
+            };
+
+            const onEnd = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('touchmove', onMove, { passive: false });
+                document.removeEventListener('mouseup', onEnd);
+                document.removeEventListener('touchend', onEnd);
+
+                this.elemento.style.width = (this.elemento.offsetWidth / this.area.clientWidth) * 100 + '%';
+                this.elemento.style.height = (this.elemento.offsetHeight / this.area.clientHeight) * 100 + '%';
+                salvarBlocos();
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
+        };
+
+        puxador.addEventListener('mousedown', iniciarRedimensionamento);
+        puxador.addEventListener('touchstart', iniciarRedimensionamento, { passive: false });
     }
 
     extrairDadosParaSalvar(larguraArea, alturaArea) {
@@ -186,11 +233,9 @@ class Bloco {
         };
     }
 
-    // Método Abstrato
     extrairDadosEspecificos() { return {}; }
 }
 
-// 2. Subclasses (Herança)
 class BlocoTexto extends Bloco {
     constructor(dados) { super(dados, 'texto'); }
     
@@ -289,20 +334,55 @@ class BlocoDesenho extends Bloco {
             imagemSalva.onload = () => pincel.drawImage(imagemSalva, 0, 0);
         }
 
-        canvas.onmousedown = (e) => {
+        const iniciarDesenho = (e) => {
+            if (e.type === 'touchstart') e.preventDefault();
             desenhando = true;
+            const pos = this.obterCoordenadas(e);
+            
+            // Calculo preciso para onde o dedo encosta em relação ao canvas responsivo
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (pos.x - rect.left) * scaleX;
+            const y = (pos.y - rect.top) * scaleY;
+
             pincel.lineWidth = espessuraBase * (canvas.width / canvas.offsetWidth);
             pincel.beginPath();
-            pincel.moveTo(e.offsetX * (canvas.width / canvas.offsetWidth), e.offsetY * (canvas.height / canvas.offsetHeight)); 
+            pincel.moveTo(x, y); 
         };
-        canvas.onmousemove = (e) => {
+
+        const moverDesenho = (e) => {
+            if (e.type === 'touchmove') e.preventDefault();
             if (desenhando) {
-                pincel.lineTo(e.offsetX * (canvas.width / canvas.offsetWidth), e.offsetY * (canvas.height / canvas.offsetHeight));
+                const pos = this.obterCoordenadas(e);
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (pos.x - rect.left) * scaleX;
+                const y = (pos.y - rect.top) * scaleY;
+
+                pincel.lineTo(x, y);
                 pincel.stroke(); 
             }
         };
-        canvas.onmouseup = () => { desenhando = false; salvarBlocos(); };
-        canvas.onmouseout = () => { desenhando = false; };
+
+        const pararDesenho = () => { 
+            if (desenhando) {
+                desenhando = false; 
+                salvarBlocos(); 
+            }
+        };
+
+        canvas.addEventListener('mousedown', iniciarDesenho);
+        canvas.addEventListener('mousemove', moverDesenho);
+        canvas.addEventListener('mouseup', pararDesenho);
+        canvas.addEventListener('mouseout', pararDesenho);
+        
+        // Touch events adicionados para o canvas funcionar no telemóvel
+        canvas.addEventListener('touchstart', iniciarDesenho, { passive: false });
+        canvas.addEventListener('touchmove', moverDesenho, { passive: false });
+        canvas.addEventListener('touchend', pararDesenho);
+        canvas.addEventListener('touchcancel', pararDesenho);
     }
 
     extrairDadosEspecificos() {
@@ -312,7 +392,6 @@ class BlocoDesenho extends Bloco {
     }
 }
 
-// 3. Factory Method Pattern
 class BlocoFactory {
     static criar(dados = null) {
         const tipo = dados ? dados.tipo : document.getElementById('seletor-tipo').value;
@@ -327,24 +406,17 @@ class BlocoFactory {
     }
 }
 
-// --- LÓGICA DO PROGRAMA PRINCIPAL ---
-
+// --- FUNÇÕES GERAIS ---
 function salvarBlocos() {
     const area = document.getElementById('area-trabalho');
-    
-    // O mapeamento extrai a estrutura de dados independentemente da persistência
     const arrayDeDados = Array.from(area.children).map(elemento => {
         return elemento.__blocoInstance.extrairDadosParaSalvar(area.clientWidth, area.clientHeight);
     });
-
-    // Delegamos a responsabilidade de guardar ao StorageService
     StorageService.salvar(arrayDeDados);
 }
 
 function carregarBlocos() {
-    // Delegamos a responsabilidade de leitura ao StorageService
     const arrayDeDados = StorageService.carregar();
-    
     if (arrayDeDados && Array.isArray(arrayDeDados)) {
         arrayDeDados.forEach(dadoDoBloco => {
             BlocoFactory.criar(dadoDoBloco);
@@ -352,46 +424,90 @@ function carregarBlocos() {
     }
 }
 
-// --- VARIÁVEIS DE CONTROLO DA INTERFACE ---
+// --- INICIALIZAÇÃO E VARIÁVEIS DE INTERFACE ---
 const btnAdd = document.getElementById('btn-add');
 const btnExportar = document.getElementById('btn-exportar');
 const btnImportar = document.getElementById('btn-importar');
 const inputArquivo = document.getElementById('input-arquivo');
+const btnInstalar = document.getElementById('btn-instalar');
 
-// --- INICIALIZAÇÃO ---
-btnAdd.addEventListener('click', () => {
-    BlocoFactory.criar();
-    salvarBlocos();
+if (btnAdd) {
+    btnAdd.addEventListener('click', () => {
+        BlocoFactory.criar();
+        salvarBlocos();
+    });
+}
+
+if (btnExportar) {
+    btnExportar.addEventListener('click', () => {
+        salvarBlocos(); 
+        const dadosSalvos = localStorage.getItem(StorageService.CHAVE_ARMAZENAMENTO);
+        if (!dadosSalvos || dadosSalvos === '[]') {
+            alert("Não há blocos na tela para exportar!");
+            return; 
+        }
+        const arquivoBlob = new Blob([dadosSalvos], { type: 'application/json' });
+        const urlTemporaria = URL.createObjectURL(arquivoBlob);
+        const linkDownload = document.createElement('a');
+        linkDownload.href = urlTemporaria;
+        linkDownload.download = 'meus_blocos.json'; 
+        linkDownload.click();
+        URL.revokeObjectURL(urlTemporaria);
+    });
+}
+
+if (btnImportar && inputArquivo) {
+    btnImportar.addEventListener('click', () => {
+        inputArquivo.click(); 
+    });
+
+    inputArquivo.addEventListener('change', (evento) => {
+        const arquivoSelecionado = evento.target.files[0];
+        if (!arquivoSelecionado) return; 
+
+        const leitor = new FileReader();
+        leitor.onload = (e) => {
+            try {
+                const blocosImportados = JSON.parse(e.target.result);
+                document.getElementById('area-trabalho').innerHTML = ''; 
+                blocosImportados.forEach(dadoDoBloco => {
+                    BlocoFactory.criar(dadoDoBloco);
+                });
+                salvarBlocos(); 
+            } catch (erro) {
+                alert("Erro ao importar: O arquivo selecionado não é válido ou está corrompido.");
+            }
+            inputArquivo.value = ''; 
+        };
+        leitor.readAsText(arquivoSelecionado);
+    });
+}
+
+// --- LÓGICA DE INSTALAÇÃO DO PWA ---
+let eventoPromptInstalacao = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    eventoPromptInstalacao = e;
+    if (btnInstalar) btnInstalar.style.display = 'block';
 });
 
-carregarBlocos(); // Carrega os blocos guardados ao abrir a página
+if (btnInstalar) {
+    btnInstalar.addEventListener('click', async () => {
+        if (!eventoPromptInstalacao) return;
+        eventoPromptInstalacao.prompt();
+        const { outcome } = await eventoPromptInstalacao.userChoice;
+        console.log(`Escolha de instalação do utilizador: ${outcome}`);
+        if (outcome === 'accepted') {
+            btnInstalar.style.display = 'none';
+        }
+        eventoPromptInstalacao = null;
+    });
+}
 
-// --- LÓGICA DE EXPORTAR E IMPORTAR ---
-btnExportar.addEventListener('click', () => {
-    salvarBlocos(); 
-    
-    // O exportar agora usa a chave centralizada do serviço
-    const dadosSalvos = localStorage.getItem(StorageService.CHAVE_ARMAZENAMENTO);
-    
-    if (!dadosSalvos || dadosSalvos === '[]') {
-        alert("Não há blocos na tela para exportar!");
-        return; 
-    }
-
-    const arquivoBlob = new Blob([dadosSalvos], { type: 'application/json' });
-    const urlTemporaria = URL.createObjectURL(arquivoBlob);
-    
-    const linkDownload = document.createElement('a');
-    linkDownload.href = urlTemporaria;
-    linkDownload.download = 'meus_blocos.json'; 
-    linkDownload.click();
-    
-    URL.revokeObjectURL(urlTemporaria);
-});
-
-// O seu código do btnImportar continua aqui para baixo...
-btnImportar.addEventListener('click', () => {
-    inputArquivo.click(); 
+window.addEventListener('appinstalled', () => {
+    if (btnInstalar) btnInstalar.style.display = 'none';
+    console.log('BlockNotes foi instalado com sucesso.');
 });
 
 // --- REGISTO DO SERVICE WORKER (PWA) ---
@@ -407,43 +523,5 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// --- LÓGICA DE INSTALAÇÃO DO PWA ---
-let eventoPromptInstalacao = null;
-const btnInstalar = document.getElementById('btn-instalar');
-
-// O navegador dispara este evento quando reconhece que o PWA cumpre os requisitos
-window.addEventListener('beforeinstallprompt', (e) => {
-    // Impede o mini-infobar padrão do navegador de aparecer imediatamente
-    e.preventDefault();
-    // Guarda o evento para ser disparado depois
-    eventoPromptInstalacao = e;
-    // Mostra o nosso botão na interface
-    if (btnInstalar) btnInstalar.style.display = 'block';
-});
-
-if (btnInstalar) {
-    btnInstalar.addEventListener('click', async () => {
-        if (!eventoPromptInstalacao) return;
-        
-        // Mostra o prompt nativo de instalação do sistema operativo
-        eventoPromptInstalacao.prompt();
-        
-        // Aguarda a resposta do utilizador
-        const { outcome } = await eventoPromptInstalacao.userChoice;
-        console.log(`Escolha de instalação do utilizador: ${outcome}`);
-        
-        // Se aceitou, esconde o botão
-        if (outcome === 'accepted') {
-            btnInstalar.style.display = 'none';
-        }
-        
-        // Limpa a variável, pois o prompt só pode ser usado uma vez
-        eventoPromptInstalacao = null;
-    });
-}
-
-// Opcional: Esconder o botão se a aplicação já foi instalada com sucesso
-window.addEventListener('appinstalled', () => {
-    if (btnInstalar) btnInstalar.style.display = 'none';
-    console.log('BlockNotes foi instalado com sucesso.');
-});
+// Inicia a aplicação e carrega os blocos guardados
+carregarBlocos();

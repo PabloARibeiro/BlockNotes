@@ -43,7 +43,6 @@ body {
     border-radius: 12px; 
     display: flex; 
     flex-direction: column;
-    resize: both;
     overflow: hidden; 
     box-sizing: border-box; 
     box-shadow: 0 4px 10px rgba(0,0,0,0.08); 
@@ -159,4 +158,42 @@ body {
     background: #d0e8ff;
     border-color: #007bff;
     color: #007bff;
+}
+
+/* --- COMPONENTES MOBILE E TOUCH --- */
+
+/* Novo puxador customizado para redimensionar */
+.redimensionador {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 25px;
+    height: 25px;
+    cursor: se-resize;
+    background: linear-gradient(135deg, transparent 50%, #999 50%);
+    border-bottom-right-radius: 12px;
+    z-index: 10;
+}
+
+/* Responsividade: Aumenta botões em ecrãs menores que 600px */
+@media (max-width: 600px) {
+    body { padding: 5px; }
+    
+    #controles-principais {
+        flex-wrap: wrap; /* Permite que os botões quebrem de linha se faltar espaço */
+        justify-content: center;
+        gap: 15px;
+        padding: 10px;
+    }
+
+    .btn-icone {
+        font-size: 30px; /* Alvo de toque maior */
+        padding: 10px;
+    }
+    
+    .cabecalho { padding: 10px; }
+    .cabecalho button { font-size: 20px; padding: 5px 15px; }
+    
+    .ferramentas-desenho { padding: 10px; justify-content: space-between; }
+    .btn-ferramenta { padding: 10px 15px; font-size: 16px; flex-grow: 1; margin: 0 2px;}
 }
