@@ -401,8 +401,10 @@ class BlocoDesenho extends Bloco {
     }
 
     extrairDadosEspecificos() {
+        const canvas = this.elemento.querySelector('canvas');
+        const imagemComprimida = canvas.toDataURL('image/webp', 0.5);
         return {
-            desenho: this.elemento.querySelector('canvas').toDataURL()
+            desenho: imagemComprimida
         };
     }
 }
