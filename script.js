@@ -1,5 +1,6 @@
-// VARIÁVEL GLOBAL PARA GERENCIAR A PROFUNDIDADE (Z-INDEX)
 let zIndexGlobal = 1;
+let gridAtivado = false;
+const TAMANHO_GRID = 50;
 
 // --- CAMADA DE PERSISTÊNCIA (STORAGE SERVICE) ---
 class StorageService {
@@ -136,14 +137,22 @@ class Bloco {
                 if (ev.type === 'touchmove') ev.preventDefault();
                 const posAtual = this.obterCoordenadas(ev);
                 
-                let novaPosEsquerda = leftInicial + (posAtual.x - inicioX);
-                let novaPosTopo = topInicial + (posAtual.y - inicioY);
+                // Cálculo base do movimento
+                let calcX = leftInicial + (posAtual.x - inicioX);
+                let calcY = topInicial + (posAtual.y - inicioY);
 
+                // O ALGORITMO DE GRID: Força o valor para o múltiplo de 50 mais próximo
+                if (gridAtivado) {
+                    calcX = Math.round(calcX / TAMANHO_GRID) * TAMANHO_GRID;
+                    calcY = Math.round(calcY / TAMANHO_GRID) * TAMANHO_GRID;
+                }
+
+                // Limita para não sair do ecrã
                 const maxEsquerda = this.area.clientWidth - this.elemento.offsetWidth;
                 const maxTopo = this.area.clientHeight - this.elemento.offsetHeight;
 
-                this.elemento.style.left = Math.max(0, Math.min(novaPosEsquerda, maxEsquerda)) + 'px';
-                this.elemento.style.top = Math.max(0, Math.min(novaPosTopo, maxTopo)) + 'px';
+                this.elemento.style.left = Math.max(0, Math.min(calcX, maxEsquerda)) + 'px';
+                this.elemento.style.top = Math.max(0, Math.min(calcY, maxTopo)) + 'px';
             };
             
             const onEnd = () => {
@@ -187,8 +196,14 @@ class Bloco {
                 if (ev.type === 'touchmove') ev.preventDefault();
                 const posAtual = this.obterCoordenadas(ev);
 
-                const novaLargura = larguraInicial + (posAtual.x - inicioX);
-                const novaAltura = alturaInicial + (posAtual.y - inicioY);
+                let novaLargura = larguraInicial + (posAtual.x - inicioX);
+                let novaAltura = alturaInicial + (posAtual.y - inicioY);
+
+                // O ALGORITMO DE GRID PARA REDIMENSIONAMENTO
+                if (gridAtivado) {
+                    novaLargura = Math.round(novaLargura / TAMANHO_GRID) * TAMANHO_GRID;
+                    novaAltura = Math.round(novaAltura / TAMANHO_GRID) * TAMANHO_GRID;
+                }
 
                 this.elemento.style.width = Math.max(150, novaLargura) + 'px';
                 this.elemento.style.height = Math.max(100, novaAltura) + 'px';
@@ -424,12 +439,51 @@ function carregarBlocos() {
     }
 }
 
+function forcarSnapTodosOsBlocos() {
+    const area = document.getElementById('area-trabalho');
+    const blocos = Array.from(area.children);
+
+    blocos.forEach(elemento => {
+        // Pega as dimensões atuais em pixels
+        let left = elemento.offsetLeft;
+        let top = elemento.offsetTop;
+        let width = elemento.offsetWidth;
+        let height = elemento.offsetHeight;
+
+        // Força o arredondamento matemático do Grid
+        left = Math.round(left / TAMANHO_GRID) * TAMANHO_GRID;
+        top = Math.round(top / TAMANHO_GRID) * TAMANHO_GRID;
+        width = Math.round(width / TAMANHO_GRID) * TAMANHO_GRID;
+        height = Math.round(height / TAMANHO_GRID) * TAMANHO_GRID;
+
+        // Aplica os mesmos limites de segurança do redimensionamento manual
+        width = Math.max(150, width);
+        height = Math.max(100, height);
+        
+        const maxEsquerda = area.clientWidth - width;
+        const maxTopo = area.clientHeight - height;
+        
+        left = Math.max(0, Math.min(left, maxEsquerda));
+        top = Math.max(0, Math.min(top, maxTopo));
+
+        // Converte de volta para porcentagem para não quebrar a responsividade mobile
+        elemento.style.left = (left / area.clientWidth) * 100 + '%';
+        elemento.style.top = (top / area.clientHeight) * 100 + '%';
+        elemento.style.width = (width / area.clientWidth) * 100 + '%';
+        elemento.style.height = (height / area.clientHeight) * 100 + '%';
+    });
+
+    // Salva o novo estado organizado na memória
+    if (blocos.length > 0) salvarBlocos();
+}
+
 // --- INICIALIZAÇÃO E VARIÁVEIS DE INTERFACE ---
 const btnAdd = document.getElementById('btn-add');
 const btnExportar = document.getElementById('btn-exportar');
 const btnImportar = document.getElementById('btn-importar');
 const inputArquivo = document.getElementById('input-arquivo');
 const btnInstalar = document.getElementById('btn-instalar');
+const btnGrid = document.getElementById('btn-grid');
 
 if (btnAdd) {
     btnAdd.addEventListener('click', () => {
@@ -480,6 +534,21 @@ if (btnImportar && inputArquivo) {
             inputArquivo.value = ''; 
         };
         leitor.readAsText(arquivoSelecionado);
+    });
+}
+
+if (btnGrid) {
+    btnGrid.addEventListener('click', () => {
+        gridAtivado = !gridAtivado; // Alterna entre true e false
+        
+        // Dá feedback visual na interface
+        btnGrid.classList.toggle('ativo', gridAtivado);
+        document.getElementById('area-trabalho').classList.toggle('com-grid', gridAtivado);
+
+        // A MÁGICA AQUI: Se ligou o grid, organiza a casa automaticamente
+        if (gridAtivado) {
+            forcarSnapTodosOsBlocos();
+        }
     });
 }
 

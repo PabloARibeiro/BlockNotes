@@ -197,3 +197,17 @@ body {
     .ferramentas-desenho { padding: 10px; justify-content: space-between; }
     .btn-ferramenta { padding: 10px 15px; font-size: 16px; flex-grow: 1; margin: 0 2px;}
 }
+
+/* --- SISTEMA DE GRID VISUAL --- */
+#area-trabalho.com-grid {
+    background-size: 50px 50px;
+    background-image: 
+        linear-gradient(to right, #e5e5e5 1px, transparent 1px), 
+        linear-gradient(to bottom, #e5e5e5 1px, transparent 1px);
+}
+
+.btn-icone.ativo {
+    color: #007bff; /* Fica azul quando o grid está ligado */
+    background: #e9ecef;
+    border-radius: 8px;
+}
