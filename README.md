@@ -1,5 +1,5 @@
-pequeno projeto pessoal.
+[bloknotes.](https://bloknotes.netlify.app/) (Suporte para Desktop e Mobile, tanto como site como PWA)
 
-a ideia é criar um website de anotações.
+Site e Aplicativo para anotações e lembretes em forma de blocos.
 
-futuramente pretendo adicionar suporte para mobile e aprimorar ainda mais a UI/UX
+Alguns updates futuros planejados mas funcional no estado atual.
