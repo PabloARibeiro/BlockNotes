@@ -33,16 +33,36 @@ class Bloco {
     }
 
     configurarEstilosIniciais() {
-        this.elemento.style.top = this.dados.top || '10%'; this.elemento.style.left = this.dados.left || '10%';
+        this.elemento.style.top = this.dados.top || '100px'; this.elemento.style.left = this.dados.left || '100px';
         this.elemento.style.width = this.dados.width || '250px'; this.elemento.style.height = this.dados.height || '150px';
-        this.corFundoPadrao = this.dados.fundo || '#ffffff'; this.elemento.style.backgroundColor = this.corFundoPadrao;
+        
+        if(typeof this.dados.top === 'string' && this.dados.top.includes('%')) this.elemento.style.top = (parseFloat(this.dados.top) / 100 * this.area.clientHeight) + 'px';
+        if(typeof this.dados.left === 'string' && this.dados.left.includes('%')) this.elemento.style.left = (parseFloat(this.dados.left) / 100 * this.area.clientWidth) + 'px';
+        if(typeof this.dados.width === 'string' && this.dados.width.includes('%')) this.elemento.style.width = (parseFloat(this.dados.width) / 100 * this.area.clientWidth) + 'px';
+        if(typeof this.dados.height === 'string' && this.dados.height.includes('%')) this.elemento.style.height = (parseFloat(this.dados.height) / 100 * this.area.clientHeight) + 'px';
+
+        this.corFundoPadrao = this.dados.fundo || '#ffffff'; 
+        this.corTextoPadrao = this.dados.corTexto || '#000000'; // NOVO: Cor da fonte/pincel
+        this.elemento.style.backgroundColor = this.corFundoPadrao;
+        this.elemento.style.color = this.corTextoPadrao; // NOVO: Aplica a cor ao texto
+        
         if (this.dados.zIndex) { this.elemento.style.zIndex = this.dados.zIndex; if (this.dados.zIndex >= zIndexGlobal) zIndexGlobal = this.dados.zIndex + 1; } 
         else { this.elemento.style.zIndex = zIndexGlobal++; }
     }
 
     montarHTML() {
-        const cabecalho = `<div class="cabecalho"><div class="controles-cor"><input type="color" class="cor-fundo" value="${this.corFundoPadrao}"></div><button class="btn-excluir"><i class="fa-solid fa-trash"></i></button></div>`;
+        // Cabeçalho atualizado com as DUAS cores
+        const cabecalho = `<div class="cabecalho">
+                           <div class="controles-cor">
+                           <input type="color" class="cor-fundo" value="${this.corFundoPadrao}" title="Cor de Fundo">
+                           <input type="color" class="cor-texto" value="${this.corTextoPadrao}" title="Cor do Pincel/Texto">
+                           </div><button class="btn-excluir">
+                           <i class="fa-solid fa-trash">
+                           </i></button></div>`;
+        
+        // Injeta o cabeçalho, o conteúdo do bloco e o SEU puxador antigo clássico
         this.elemento.innerHTML = cabecalho + this.getConteudoHTML() + '<div class="redimensionador"></div>';
+        
         this.aplicarRedimensionamento();
     }
     getConteudoHTML() { throw new Error("A implementar nas subclasses."); }
@@ -51,9 +71,15 @@ class Bloco {
     aplicarEventosGerais() {
         this.elemento.addEventListener('mousedown', (e) => { if (e.target.type !== 'color' && this.elemento.style.zIndex != zIndexGlobal) this.elemento.style.zIndex = zIndexGlobal++; });
         this.elemento.querySelector('.btn-excluir').onclick = () => { this.elemento.remove(); salvarBlocos(); };
-        const inputCor = this.elemento.querySelector('.cor-fundo');
-        const atualizarCor = (e) => { this.elemento.style.backgroundColor = e.target.value; salvarBlocos(); };
-        inputCor.addEventListener('input', atualizarCor); inputCor.addEventListener('change', atualizarCor);
+        
+        const inputFundo = this.elemento.querySelector('.cor-fundo');
+        const atualizarFundo = (e) => { this.elemento.style.backgroundColor = e.target.value; salvarBlocos(); };
+        inputFundo.addEventListener('input', atualizarFundo); inputFundo.addEventListener('change', atualizarFundo);
+
+        // NOVO: Escuta a mudança de cor do texto
+        const inputTexto = this.elemento.querySelector('.cor-texto');
+        const atualizarTexto = (e) => { this.elemento.style.color = e.target.value; salvarBlocos(); };
+        inputTexto.addEventListener('input', atualizarTexto); inputTexto.addEventListener('change', atualizarTexto);
     }
 
     obterCoordenadas(evento) {
@@ -128,7 +154,9 @@ class Bloco {
 
     extrairDadosParaSalvar(larguraArea, alturaArea) {
         return {
-            tipo: this.tipo, fundo: this.elemento.querySelector('.cor-fundo').value, zIndex: parseInt(this.elemento.style.zIndex) || 1,
+            tipo: this.tipo, fundo: this.elemento.querySelector('.cor-fundo').value, 
+            corTexto: this.elemento.querySelector('.cor-texto').value, // NOVO: Salva a cor no Banco de Dados
+            zIndex: parseInt(this.elemento.style.zIndex) || 1,
             top: (this.elemento.offsetTop / alturaArea) * 100 + '%', left: (this.elemento.offsetLeft / larguraArea) * 100 + '%',
             width: (this.elemento.offsetWidth / larguraArea) * 100 + '%', height: (this.elemento.offsetHeight / alturaArea) * 100 + '%',
             ...this.extrairDadosEspecificos()
@@ -173,10 +201,13 @@ class BlocoDesenho extends Bloco {
         const processarDesenho = (e, acao) => {
             if (e.type.includes('touch')) e.preventDefault();
             const pos = this.obterCoordenadas(e); const rect = canvas.getBoundingClientRect();
-            // A genialidade matemática: rect.width já calcula o zoom atualizado nativamente!
             const x = (pos.x - rect.left) * (canvas.width / rect.width);
             const y = (pos.y - rect.top) * (canvas.height / rect.height);
             pincel.lineWidth = espessuraBase * (canvas.width / canvas.offsetWidth);
+            
+            // NOVO: O pincel lê a cor do cabeçalho a cada traço!
+            pincel.strokeStyle = this.elemento.querySelector('.cor-texto').value; 
+            
             if (acao === 'iniciar') { desenhando = true; pincel.beginPath(); pincel.moveTo(x, y); } 
             else if (acao === 'mover' && desenhando) { pincel.lineTo(x, y); pincel.stroke(); } 
             else if (acao === 'parar' && desenhando) { desenhando = false; salvarBlocos(); }
@@ -258,6 +289,21 @@ viewport.addEventListener('wheel', (e) => {
     escalaWorkspace = Math.max(0.2, Math.min(escalaWorkspace, 3)); // Limites de zoom
     atualizarTransform();
 }, { passive: false });
+// Zoom com Pinça (Touch)
+let distInicial = 0;
+viewport.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+        e.preventDefault(); // Bloqueia o telemóvel de tentar fazer scroll
+        let dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        if (!distInicial) distInicial = dist;
+        else {
+            escalaWorkspace = Math.max(0.2, Math.min(escalaWorkspace * (dist / distInicial), 3));
+            distInicial = dist;
+            atualizarTransform();
+        }
+    }
+}, { passive: false });
+viewport.addEventListener('touchend', () => distInicial = 0);
 
 // Botões de Interface
 document.getElementById('btn-add')?.addEventListener('click', () => { BlocoFactory.criar(); salvarBlocos(); });
