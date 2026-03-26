@@ -21,20 +21,30 @@ class StorageService {
 
 // --- ARQUITETURA DE BLOCOS (OOP) ---
 class Bloco {
-    constructor(dados, tipo) {
-        this.tipo = tipo; this.dados = dados || {};
+    constructor(dados, tipo, permiteCores = true) {
+        this.tipo = tipo; 
+        this.dados = dados || {};
+        this.permiteCores = permiteCores; 
         this.area = document.getElementById('area-trabalho');
         this.elemento = document.createElement('div');
-        this.elemento.className = 'bloco'; this.elemento.dataset.tipo = tipo;
+        this.elemento.className = 'bloco'; 
+        this.elemento.dataset.tipo = tipo;
         this.elemento.__blocoInstance = this;
-        this.configurarEstilosIniciais(); this.montarHTML();
-        this.aplicarEventosGerais(); this.aplicarEventosEspecificos(); this.aplicarArrastar();
+        this.configurarEstilosIniciais(); 
+        this.montarHTML();
+        this.aplicarEventosGerais(); 
+        this.aplicarEventosEspecificos(); 
+        this.aplicarArrastar();
         this.area.appendChild(this.elemento);
     }
 
     configurarEstilosIniciais() {
-        this.elemento.style.top = this.dados.top || '100px'; this.elemento.style.left = this.dados.left || '100px';
-        this.elemento.style.width = this.dados.width || '250px'; this.elemento.style.height = this.dados.height || '150px';
+        this.elemento.style.top = this.dados.top || '100px'; 
+        this.elemento.style.left = this.dados.left || '100px';
+        
+        // NOVO TAMANHO PADRÃO: 300x200 (6x4 no grid de 50px)
+        this.elemento.style.width = this.dados.width || '300px'; 
+        this.elemento.style.height = this.dados.height || '200px';
         
         if(typeof this.dados.top === 'string' && this.dados.top.includes('%')) this.elemento.style.top = (parseFloat(this.dados.top) / 100 * this.area.clientHeight) + 'px';
         if(typeof this.dados.left === 'string' && this.dados.left.includes('%')) this.elemento.style.left = (parseFloat(this.dados.left) / 100 * this.area.clientWidth) + 'px';
@@ -42,29 +52,32 @@ class Bloco {
         if(typeof this.dados.height === 'string' && this.dados.height.includes('%')) this.elemento.style.height = (parseFloat(this.dados.height) / 100 * this.area.clientHeight) + 'px';
 
         this.corFundoPadrao = this.dados.fundo || '#ffffff'; 
-        this.corTextoPadrao = this.dados.corTexto || '#000000'; // NOVO: Cor da fonte/pincel
+        this.corTextoPadrao = this.dados.corTexto || '#000000';
         this.elemento.style.backgroundColor = this.corFundoPadrao;
-        this.elemento.style.color = this.corTextoPadrao; // NOVO: Aplica a cor ao texto
+        this.elemento.style.color = this.corTextoPadrao;
         
-        if (this.dados.zIndex) { this.elemento.style.zIndex = this.dados.zIndex; if (this.dados.zIndex >= zIndexGlobal) zIndexGlobal = this.dados.zIndex + 1; } 
-        else { this.elemento.style.zIndex = zIndexGlobal++; }
+        if (this.dados.zIndex) { 
+            this.elemento.style.zIndex = this.dados.zIndex; 
+            if (this.dados.zIndex >= zIndexGlobal) zIndexGlobal = this.dados.zIndex + 1; 
+        } else { 
+            this.elemento.style.zIndex = zIndexGlobal++; 
+        }
     }
 
     montarHTML() {
-        // Cabeçalho atualizado com as DUAS cores
-        const cabecalho = `<div class="cabecalho">
-                           <div class="controles-cor">
-                           <input type="color" class="cor-fundo" value="${this.corFundoPadrao}" title="Cor de Fundo">
-                           <input type="color" class="cor-texto" value="${this.corTextoPadrao}" title="Cor do Pincel/Texto">
-                           </div><button class="btn-excluir">
-                           <i class="fa-solid fa-trash">
-                           </i></button></div>`;
+        const controlesCorHTML = this.permiteCores ? 
+            `<div class="controles-cor">
+                <input type="color" class="cor-fundo" value="${this.corFundoPadrao}" title="Cor de Fundo">
+                <input type="color" class="cor-texto" value="${this.corTextoPadrao}" title="Cor do Pincel/Texto">
+            </div>` : `<div class="controles-cor"></div>`;
+
+        const cabecalho = `<div class="cabecalho">${controlesCorHTML}<button class="btn-excluir"><i class="fa-solid fa-trash"></i></button></div>`;
         
-        // Injeta o cabeçalho, o conteúdo do bloco e o SEU puxador antigo clássico
+        // DE VOLTA ÀS ORIGENS: O gancho clássico no canto inferior direito
         this.elemento.innerHTML = cabecalho + this.getConteudoHTML() + '<div class="redimensionador"></div>';
-        
         this.aplicarRedimensionamento();
     }
+
     getConteudoHTML() { throw new Error("A implementar nas subclasses."); }
     aplicarEventosEspecificos() {}
 
@@ -72,14 +85,15 @@ class Bloco {
         this.elemento.addEventListener('mousedown', (e) => { if (e.target.type !== 'color' && this.elemento.style.zIndex != zIndexGlobal) this.elemento.style.zIndex = zIndexGlobal++; });
         this.elemento.querySelector('.btn-excluir').onclick = () => { this.elemento.remove(); salvarBlocos(); };
         
-        const inputFundo = this.elemento.querySelector('.cor-fundo');
-        const atualizarFundo = (e) => { this.elemento.style.backgroundColor = e.target.value; salvarBlocos(); };
-        inputFundo.addEventListener('input', atualizarFundo); inputFundo.addEventListener('change', atualizarFundo);
+        if (this.permiteCores) {
+            const inputFundo = this.elemento.querySelector('.cor-fundo');
+            const atualizarFundo = (e) => { this.elemento.style.backgroundColor = e.target.value; salvarBlocos(); };
+            inputFundo.addEventListener('input', atualizarFundo); inputFundo.addEventListener('change', atualizarFundo);
 
-        // NOVO: Escuta a mudança de cor do texto
-        const inputTexto = this.elemento.querySelector('.cor-texto');
-        const atualizarTexto = (e) => { this.elemento.style.color = e.target.value; salvarBlocos(); };
-        inputTexto.addEventListener('input', atualizarTexto); inputTexto.addEventListener('change', atualizarTexto);
+            const inputTexto = this.elemento.querySelector('.cor-texto');
+            const atualizarTexto = (e) => { this.elemento.style.color = e.target.value; salvarBlocos(); };
+            inputTexto.addEventListener('input', atualizarTexto); inputTexto.addEventListener('change', atualizarTexto);
+        }
     }
 
     obterCoordenadas(evento) {
@@ -90,9 +104,11 @@ class Bloco {
     aplicarArrastar() {
         const cabecalho = this.elemento.querySelector('.cabecalho');
         let inicioX, inicioY, leftInicial, topInicial;
+        
         const iniciarArrasto = (evento) => {
-            if(['INPUT', 'BUTTON', 'I'].includes(evento.target.tagName)) return;
+            if (evento.target.closest('button, input, select, .redimensionador')) return;
             if (evento.type === 'touchstart') evento.preventDefault(); 
+            
             const pos = this.obterCoordenadas(evento);
             inicioX = pos.x; inicioY = pos.y;
             leftInicial = this.elemento.offsetLeft; topInicial = this.elemento.offsetTop;
@@ -101,7 +117,6 @@ class Bloco {
                 if (ev.type === 'touchmove') ev.preventDefault();
                 const posAtual = this.obterCoordenadas(ev);
                 
-                // MÁGICA DA FÍSICA: Dividir o movimento pelo zoom para o rato não fugir do bloco
                 let calcX = leftInicial + ((posAtual.x - inicioX) / escalaWorkspace);
                 let calcY = topInicial + ((posAtual.y - inicioY) / escalaWorkspace);
 
@@ -113,8 +128,6 @@ class Bloco {
             const onEnd = () => {
                 document.removeEventListener('mousemove', onMove); document.removeEventListener('touchmove', onMove, { passive: false });
                 document.removeEventListener('mouseup', onEnd); document.removeEventListener('touchend', onEnd);
-                this.elemento.style.left = (this.elemento.offsetLeft / this.area.clientWidth) * 100 + '%';
-                this.elemento.style.top = (this.elemento.offsetTop / this.area.clientHeight) * 100 + '%';
                 salvarBlocos();
             };
             document.addEventListener('mousemove', onMove); document.addEventListener('touchmove', onMove, { passive: false });
@@ -124,43 +137,66 @@ class Bloco {
     }
 
     aplicarRedimensionamento() {
-        const puxador = this.elemento.querySelector('.redimensionador'); if (!puxador) return;
+        const puxador = this.elemento.querySelector('.redimensionador');
+        if (!puxador) return;
+
         let larguraInicial, alturaInicial, inicioX, inicioY;
+
         const iniciarRedimensionamento = (evento) => {
-            if (evento.type === 'touchstart') evento.preventDefault(); evento.stopPropagation();
+            if (evento.type === 'touchstart') evento.preventDefault(); 
+            evento.stopPropagation(); 
+
             const pos = this.obterCoordenadas(evento);
             inicioX = pos.x; inicioY = pos.y;
+            
             larguraInicial = this.elemento.offsetWidth; alturaInicial = this.elemento.offsetHeight;
+
             const onMove = (ev) => {
                 if (ev.type === 'touchmove') ev.preventDefault();
                 const posAtual = this.obterCoordenadas(ev);
+                
                 let novaLargura = larguraInicial + ((posAtual.x - inicioX) / escalaWorkspace);
                 let novaAltura = alturaInicial + ((posAtual.y - inicioY) / escalaWorkspace);
-                if (gridAtivado) { novaLargura = Math.round(novaLargura / TAMANHO_GRID) * TAMANHO_GRID; novaAltura = Math.round(novaAltura / TAMANHO_GRID) * TAMANHO_GRID; }
-                this.elemento.style.width = Math.max(150, novaLargura) + 'px'; this.elemento.style.height = Math.max(100, novaAltura) + 'px';
+
+                if (gridAtivado) {
+                    novaLargura = Math.round(novaLargura / TAMANHO_GRID) * TAMANHO_GRID;
+                    novaAltura = Math.round(novaAltura / TAMANHO_GRID) * TAMANHO_GRID;
+                }
+
+                this.elemento.style.width = Math.max(150, novaLargura) + 'px'; 
+                this.elemento.style.height = Math.max(100, novaAltura) + 'px';
             };
+
             const onEnd = () => {
                 document.removeEventListener('mousemove', onMove); document.removeEventListener('touchmove', onMove, { passive: false });
                 document.removeEventListener('mouseup', onEnd); document.removeEventListener('touchend', onEnd);
-                this.elemento.style.width = (this.elemento.offsetWidth / this.area.clientWidth) * 100 + '%';
-                this.elemento.style.height = (this.elemento.offsetHeight / this.area.clientHeight) * 100 + '%';
                 salvarBlocos();
             };
+
             document.addEventListener('mousemove', onMove); document.addEventListener('touchmove', onMove, { passive: false });
             document.addEventListener('mouseup', onEnd); document.addEventListener('touchend', onEnd);
         };
-        puxador.addEventListener('mousedown', iniciarRedimensionamento); puxador.addEventListener('touchstart', iniciarRedimensionamento, { passive: false });
+
+        puxador.addEventListener('mousedown', iniciarRedimensionamento);
+        puxador.addEventListener('touchstart', iniciarRedimensionamento, { passive: false });
     }
 
     extrairDadosParaSalvar(larguraArea, alturaArea) {
-        return {
-            tipo: this.tipo, fundo: this.elemento.querySelector('.cor-fundo').value, 
-            corTexto: this.elemento.querySelector('.cor-texto').value, // NOVO: Salva a cor no Banco de Dados
+        let dadosBase = {
+            tipo: this.tipo, 
             zIndex: parseInt(this.elemento.style.zIndex) || 1,
             top: (this.elemento.offsetTop / alturaArea) * 100 + '%', left: (this.elemento.offsetLeft / larguraArea) * 100 + '%',
-            width: (this.elemento.offsetWidth / larguraArea) * 100 + '%', height: (this.elemento.offsetHeight / alturaArea) * 100 + '%',
-            ...this.extrairDadosEspecificos()
+            width: (this.elemento.offsetWidth / larguraArea) * 100 + '%', height: (this.elemento.offsetHeight / alturaArea) * 100 + '%'
         };
+        
+        if (this.permiteCores) {
+            dadosBase.fundo = this.elemento.querySelector('.cor-fundo').value;
+            dadosBase.corTexto = this.elemento.querySelector('.cor-texto').value;
+        } else {
+            dadosBase.fundo = this.corFundoPadrao;
+            dadosBase.corTexto = this.corTextoPadrao;
+        }
+        return { ...dadosBase, ...this.extrairDadosEspecificos() };
     }
     extrairDadosEspecificos() { return {}; }
 }
@@ -316,6 +352,135 @@ class BlocoChecklist extends Bloco {
     }
 }
 
+// --- BLOCO DE IMAGEM ---
+class BlocoImagem extends Bloco {
+    constructor(dados) { super(dados, 'imagem', false); } 
+    
+    getConteudoHTML() {
+        const imgTag = this.dados.src ? `<img src="${this.dados.src}">` : '';
+        const btnUpload = this.dados.src ? '' : `<button class="btn-upload-img"><i class="fa-solid fa-upload"></i> Carregar Foto</button>`;
+        return `
+            <div class="area-imagem" title="Dê um duplo clique para trocar a imagem">
+                ${imgTag}
+                ${btnUpload}
+                <input type="file" accept="image/*" style="display: none;">
+            </div>
+        `;
+    }
+
+    aplicarEventosEspecificos() {
+        const area = this.elemento.querySelector('.area-imagem');
+        const fileInput = this.elemento.querySelector('input[type="file"]');
+        const btnUpload = this.elemento.querySelector('.btn-upload-img');
+
+        // Abre o seletor de arquivos no clique do botão ou duplo clique na área
+        const abrirSeletor = () => fileInput.click();
+        if (btnUpload) btnUpload.onclick = abrirSeletor;
+        area.ondblclick = abrirSeletor;
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Compressão Mágica: Reduz fotos gigantes para o formato WebP
+                    const canvas = document.createElement('canvas');
+                    const MAX_SIZE = 1200; // Limite de resolução
+                    let width = img.width, height = img.height;
+
+                    if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
+                    else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Converte para WebP com 70% de qualidade
+                    const imgComprimida = canvas.toDataURL('image/webp', 0.7);
+                    
+                    area.innerHTML = `<img src="${imgComprimida}"><input type="file" accept="image/*" style="display: none;">`;
+                    this.aplicarEventosEspecificos(); // Re-amarra os eventos
+                    salvarBlocos();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+    }
+
+    extrairDadosEspecificos() {
+        const img = this.elemento.querySelector('img');
+        return { src: img ? img.src : null };
+    }
+}
+
+// --- BLOCO DE BOOKMARK ---
+class BlocoBookmark extends Bloco {
+    constructor(dados) { super(dados, 'bookmark', false); }
+
+    getConteudoHTML() {
+        const titulo = this.dados.titulo || '';
+        const url = this.dados.url || '';
+        const modoEdicao = !url; // Começa editando se não tiver link salvo
+
+        return `
+            <div class="area-bookmark">
+                <div class="bookmark-edit" style="display: ${modoEdicao ? 'flex' : 'none'};">
+                    <input type="text" class="bm-titulo" placeholder="Nome do site..." value="${titulo}">
+                    <input type="url" class="bm-url" placeholder="https://..." value="${url}">
+                    <button class="bm-salvar"><i class="fa-solid fa-check"></i> Guardar Link</button>
+                </div>
+                <div class="bookmark-view" style="display: ${modoEdicao ? 'none' : 'flex'};">
+                    <h3 class="bm-view-titulo">${titulo}</h3>
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="bm-link"><i class="fa-solid fa-arrow-up-right-from-square"></i> Acessar</a>
+                    <button class="bm-editar">Editar</button>
+                </div>
+            </div>
+        `;
+    }
+
+    aplicarEventosEspecificos() {
+        const editDiv = this.elemento.querySelector('.bookmark-edit');
+        const viewDiv = this.elemento.querySelector('.bookmark-view');
+        const inputTitulo = this.elemento.querySelector('.bm-titulo');
+        const inputUrl = this.elemento.querySelector('.bm-url');
+        const btnSalvar = this.elemento.querySelector('.bm-salvar');
+        const btnEditar = this.elemento.querySelector('.bm-editar');
+        
+        // Bloqueia o arrasto ao tentar digitar
+        inputTitulo.addEventListener('mousedown', (e) => e.stopPropagation());
+        inputUrl.addEventListener('mousedown', (e) => e.stopPropagation());
+        inputTitulo.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+        inputUrl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
+        btnSalvar.onclick = () => {
+            if (!inputUrl.value) return alert('Por favor, digite um link.');
+            let linkFinal = inputUrl.value.startsWith('http') ? inputUrl.value : 'https://' + inputUrl.value;
+            
+            this.elemento.querySelector('.bm-view-titulo').innerText = inputTitulo.value || linkFinal;
+            this.elemento.querySelector('.bm-link').href = linkFinal;
+            
+            editDiv.style.display = 'none'; viewDiv.style.display = 'flex';
+            salvarBlocos();
+        };
+
+        btnEditar.onclick = () => {
+            editDiv.style.display = 'flex'; viewDiv.style.display = 'none';
+        };
+    }
+
+    extrairDadosEspecificos() {
+        if (this.elemento.querySelector('.bookmark-view').style.display === 'none') {
+            return { titulo: this.elemento.querySelector('.bm-titulo').value, url: this.elemento.querySelector('.bm-url').value };
+        } else {
+            return { titulo: this.elemento.querySelector('.bm-view-titulo').innerText, url: this.elemento.querySelector('.bm-link').href };
+        }
+    }
+}
+
 class BlocoFactory {
     static criar(dados = null) {
         const tipo = dados && dados.tipo ? dados.tipo : (document.getElementById('seletor-tipo')?.value || 'texto');
@@ -324,7 +489,9 @@ class BlocoFactory {
             case 'texto': return new BlocoTexto(config); 
             case 'titulo-texto': return new BlocoTituloTexto(config); 
             case 'desenho': return new BlocoDesenho(config); 
-            case 'checklist': return new BlocoChecklist(config); // <-- ADICIONE APENAS ESTA LINHA
+            case 'checklist': return new BlocoChecklist(config);
+            case 'imagem': return new BlocoImagem(config);
+            case 'bookmark': return new BlocoBookmark(config);
             default: return null; 
         }
     }
@@ -408,7 +575,14 @@ viewport.addEventListener('touchmove', (e) => {
 viewport.addEventListener('touchend', () => distInicial = 0);
 
 // Botões de Interface
-document.getElementById('btn-add')?.addEventListener('click', () => { BlocoFactory.criar(); salvarBlocos(); });
+document.getElementById('btn-add')?.addEventListener('click', () => { 
+    const rect = viewport.getBoundingClientRect();
+    let cx = (rect.width / 2 - panX) / escalaWorkspace - 150;
+    let cy = (rect.height / 2 - panY) / escalaWorkspace - 100;
+    
+    BlocoFactory.criar({ left: cx + 'px', top: cy + 'px' }); 
+    salvarBlocos(); 
+});
 document.getElementById('btn-grid')?.addEventListener('click', (e) => {
     gridAtivado = !gridAtivado; e.currentTarget.classList.toggle('ativo', gridAtivado);
     area.classList.toggle('com-grid', gridAtivado); if (gridAtivado) forcarSnapTodosOsBlocos();
