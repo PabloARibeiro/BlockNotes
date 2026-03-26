@@ -221,10 +221,112 @@ class BlocoDesenho extends Bloco {
     extrairDadosEspecificos() { return { desenho: this.elemento.querySelector('canvas').toDataURL('image/webp', 0.5) }; }
 }
 
+class BlocoChecklist extends Bloco {
+    constructor(dados) { super(dados, 'checklist'); }
+    
+    getConteudoHTML() {
+        const titulo = this.dados.titulo || '';
+        let tarefasHTML = '';
+        
+        // Se já tiver tarefas salvas, carrega. Se não, cria uma linha vazia.
+        if (this.dados.tarefas && this.dados.tarefas.length > 0) {
+            this.dados.tarefas.forEach(t => {
+                const checked = t.concluida ? 'checked' : '';
+                tarefasHTML += `
+                    <li class="tarefa-item">
+                        <input type="checkbox" ${checked}>
+                        <input type="text" value="${t.texto}" placeholder="Nova tarefa...">
+                        <button class="btn-remover-tarefa" title="Remover"><i class="fa-solid fa-xmark"></i></button>
+                    </li>
+                `;
+            });
+        } else {
+            tarefasHTML = `
+                <li class="tarefa-item">
+                    <input type="checkbox">
+                    <input type="text" placeholder="Nova tarefa...">
+                    <button class="btn-remover-tarefa" title="Remover"><i class="fa-solid fa-xmark"></i></button>
+                </li>
+            `;
+        }
+
+        return `
+            <div class="area-checklist">
+                <div class="area-titulo" contenteditable="true">${titulo}</div>
+                <ul class="lista-tarefas">${tarefasHTML}</ul>
+                <button class="btn-add-tarefa">+ Adicionar Tarefa</button>
+            </div>
+        `;
+    }
+
+    aplicarEventosEspecificos() {
+        const lista = this.elemento.querySelector('.lista-tarefas');
+        const btnAdd = this.elemento.querySelector('.btn-add-tarefa');
+        this.elemento.querySelector('.area-titulo').addEventListener('input', salvarBlocos);
+
+        const amarrarEventosItem = (item) => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            const texto = item.querySelector('input[type="text"]');
+            const btnRemover = item.querySelector('.btn-remover-tarefa');
+
+            checkbox.addEventListener('change', salvarBlocos);
+            texto.addEventListener('input', salvarBlocos);
+            
+            // Garante que não arrastamos o bloco ao focar no texto da tarefa
+            texto.addEventListener('mousedown', (e) => e.stopPropagation());
+            texto.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
+            btnRemover.addEventListener('click', () => {
+                item.remove();
+                salvarBlocos();
+            });
+        };
+
+        // Amarra eventos aos itens que já foram carregados
+        lista.querySelectorAll('.tarefa-item').forEach(amarrarEventosItem);
+
+        // Lógica de adicionar nova tarefa
+        btnAdd.addEventListener('click', () => {
+            const li = document.createElement('li');
+            li.className = 'tarefa-item';
+            li.innerHTML = `
+                <input type="checkbox">
+                <input type="text" placeholder="Nova tarefa...">
+                <button class="btn-remover-tarefa" title="Remover"><i class="fa-solid fa-xmark"></i></button>
+            `;
+            lista.appendChild(li);
+            amarrarEventosItem(li);
+            li.querySelector('input[type="text"]').focus();
+            salvarBlocos();
+        });
+    }
+
+    extrairDadosEspecificos() {
+        const tarefas = [];
+        this.elemento.querySelectorAll('.tarefa-item').forEach(item => {
+            tarefas.push({
+                concluida: item.querySelector('input[type="checkbox"]').checked,
+                texto: item.querySelector('input[type="text"]').value
+            });
+        });
+        return {
+            titulo: this.elemento.querySelector('.area-titulo').innerHTML,
+            tarefas: tarefas
+        };
+    }
+}
+
 class BlocoFactory {
     static criar(dados = null) {
-        const tipo = dados ? dados.tipo : document.getElementById('seletor-tipo').value;
-        switch(tipo) { case 'texto': return new BlocoTexto(dados); case 'titulo-texto': return new BlocoTituloTexto(dados); case 'desenho': return new BlocoDesenho(dados); default: return null; }
+        const tipo = dados && dados.tipo ? dados.tipo : (document.getElementById('seletor-tipo')?.value || 'texto');
+        const config = dados || {};
+        switch(tipo) { 
+            case 'texto': return new BlocoTexto(config); 
+            case 'titulo-texto': return new BlocoTituloTexto(config); 
+            case 'desenho': return new BlocoDesenho(config); 
+            case 'checklist': return new BlocoChecklist(config); // <-- ADICIONE APENAS ESTA LINHA
+            default: return null; 
+        }
     }
 }
 
