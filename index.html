@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>BlockNotes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="color-scheme" content="light">
+    
     <link rel="stylesheet" href="fontawesome/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -13,34 +17,22 @@
         <select id="seletor-tipo" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc; font-weight: bold;">
             <option value="texto">Texto Básico</option>
             <option value="titulo-texto">Título + Texto</option>
-            <option value="desenho">Desenho Livre</option>
+            <option value="desenho">Desenho</option>
         </select>
         
-        <button id="btn-add" class="btn-icone" title="Novo Bloco">
-            <i class="fa-regular fa-window-maximize"></i>
-            <i class="fa-solid fa-circle-plus icone-mais"></i>
-        </button>
+        <button id="btn-add" class="btn-icone" title="Novo Bloco"><i class="fa-regular fa-window-maximize"></i><i class="fa-solid fa-circle-plus icone-mais"></i></button>
+        <button id="btn-grid" class="btn-icone" title="Ativar/Desativar Grid"><i class="fa-solid fa-border-all"></i></button>
         
-        <button id="btn-exportar" class="btn-icone" title="Exportar blocos">
-            <i class="fa-solid fa-file-export"></i>
-        </button>
-        
-        <button id="btn-importar" class="btn-icone" title="Importar blocos">
-            <i class="fa-solid fa-file-import"></i>
-        </button>
-        
+        <button id="btn-exportar" class="btn-icone" title="Exportar blocos"><i class="fa-solid fa-file-export"></i></button>
+        <button id="btn-importar" class="btn-icone" title="Importar blocos"><i class="fa-solid fa-file-import"></i></button>
         <input type="file" id="input-arquivo" accept=".json" style="display: none;">
-
-        <button id="btn-instalar" class="btn-icone" title="Instalar App" style="display: none;">
-            <i class="fa-solid fa-download"></i>
-        </button>
-
-        <button id="btn-grid" class="btn-icone" title="Ativar/Desativar Grid">
-            <i class="fa-solid fa-border-all"></i>
-        </button>
-        
+        <button id="btn-instalar" class="btn-icone" title="Instalar App" style="display: none;"><i class="fa-solid fa-download"></i></button>
     </div>
-    <div id="area-trabalho"></div>
+    
+    <div id="viewport">
+        <div id="area-trabalho"></div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
