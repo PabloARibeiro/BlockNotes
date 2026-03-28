@@ -266,6 +266,7 @@ class BlocoDesenho extends Bloco {
         canvas.addEventListener('touchstart', (e) => processarDesenho(e, 'iniciar'), { passive: false }); 
         canvas.addEventListener('touchmove', (e) => processarDesenho(e, 'mover'), { passive: false });
         window.addEventListener('touchend', (e) => processarDesenho(e, 'parar'));
+    }
     extrairDadosEspecificos() { return { desenho: this.elemento.querySelector('canvas').toDataURL('image/webp', 0.5) }; }
 }
 
