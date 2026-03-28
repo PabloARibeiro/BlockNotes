@@ -204,8 +204,11 @@ class Bloco {
 class BlocoTexto extends Bloco {
     constructor(dados) { super(dados, 'texto'); }
     getConteudoHTML() { return `<div class="texto" contenteditable="true">${this.dados.texto || ''}</div>`; }
-    aplicarEventosEspecificos() { this.elemento.querySelector('.texto').addEventListener('input', salvarBlocos); }
-    extrairDadosEspecificos() { return { texto: this.elemento.querySelector('.texto').innerHTML }; }
+    aplicarEventosEspecificos() { 
+        const txt = this.elemento.querySelector('.texto');
+        txt.addEventListener('input', salvarBlocos); 
+        txt.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+    }
 }
 
 class BlocoTituloTexto extends Bloco {
@@ -371,11 +374,13 @@ class BlocoImagem extends Bloco {
     
     getConteudoHTML() {
         const imgTag = this.dados.src ? `<img src="${this.dados.src}">` : '';
-        const btnUpload = this.dados.src ? '' : `<button class="btn-upload-img"><i class="fa-solid fa-upload"></i> Carregar Foto</button>`;
+        const classeBtn = this.dados.src ? 'btn-upload-img btn-trocar' : 'btn-upload-img';
+        const textoBtn = this.dados.src ? '<i class="fa-solid fa-arrows-rotate"></i>' : '<i class="fa-solid fa-upload"></i> Carregar Foto';
+        
         return `
-            <div class="area-imagem" title="Dê um duplo clique para trocar a imagem">
+            <div class="area-imagem">
                 ${imgTag}
-                ${btnUpload}
+                <button class="${classeBtn}">${textoBtn}</button>
                 <input type="file" accept="image/*" style="display: none;">
             </div>
         `;
@@ -545,7 +550,8 @@ function atualizarTransform() {
 let isPanning = false; let startPanX, startPanY;
 
 const iniciarPan = (e) => {
-    if (e.target !== viewport && e.target !== area) return; // Só move se clicar no fundo vazio
+    if (e.target !== viewport && e.target !== area) return; 
+    if (e.touches && e.touches.length > 1) return; // FIX: Cancela o arrasto se for movimento de pinça
     isPanning = true;
     const pos = (e.touches && e.touches.length > 0) ? e.touches[0] : e;
     startPanX = pos.clientX - panX; startPanY = pos.clientY - panY;
@@ -553,6 +559,7 @@ const iniciarPan = (e) => {
 
 const moverPan = (e) => {
     if (!isPanning) return;
+    if (e.touches && e.touches.length > 1) return; // FIX: Não arrasta enquanto faz zoom
     const pos = (e.touches && e.touches.length > 0) ? e.touches[0] : e;
     panX = pos.clientX - startPanX; panY = pos.clientY - startPanY;
     atualizarTransform();
