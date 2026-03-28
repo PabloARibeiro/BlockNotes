@@ -1,4 +1,4 @@
-const CACHE_NAME = 'blocknotes-v0.3.5';
+const CACHE_NAME = 'blocknotes-v0.3.6';
 
 // Ficheiros vitais que devem ser armazenados imediatamente na instalação
 const ASSETS_STATIC = [

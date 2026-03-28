@@ -235,25 +235,37 @@ class BlocoDesenho extends Bloco {
         if (this.dados.desenho) { let img = new Image(); img.src = this.dados.desenho; img.onload = () => pincel.drawImage(img, 0, 0); }
 
         const processarDesenho = (e, acao) => {
-            if (e.type.includes('touch')) e.preventDefault();
-            const pos = this.obterCoordenadas(e); const rect = canvas.getBoundingClientRect();
+            // FIX CRÍTICO: Só previne o comportamento padrão se estiver a INICIAR ou MOVER.
+            // Se dermos preventDefault no 'parar' (touchend), matamos os botões e cliques do app todo!
+            if (e.type.includes('touch') && e.cancelable && acao !== 'parar') {
+                e.preventDefault();
+            }
+
+            // Se for para parar, apenas desliga o motor e sai (evita cálculos com coordenadas vazias)
+            if (acao === 'parar') {
+                if (desenhando) { desenhando = false; salvarBlocos(); }
+                return;
+            }
+
+            const pos = this.obterCoordenadas(e); 
+            const rect = canvas.getBoundingClientRect();
             const x = (pos.x - rect.left) * (canvas.width / rect.width);
             const y = (pos.y - rect.top) * (canvas.height / rect.height);
             pincel.lineWidth = espessuraBase * (canvas.width / canvas.offsetWidth);
             
-            // NOVO: O pincel lê a cor do cabeçalho a cada traço!
             pincel.strokeStyle = this.elemento.querySelector('.cor-texto').value; 
             
             if (acao === 'iniciar') { desenhando = true; pincel.beginPath(); pincel.moveTo(x, y); } 
             else if (acao === 'mover' && desenhando) { pincel.lineTo(x, y); pincel.stroke(); } 
-            else if (acao === 'parar' && desenhando) { desenhando = false; salvarBlocos(); }
         };
 
-        canvas.addEventListener('mousedown', (e) => processarDesenho(e, 'iniciar')); canvas.addEventListener('mousemove', (e) => processarDesenho(e, 'mover'));
+        canvas.addEventListener('mousedown', (e) => processarDesenho(e, 'iniciar')); 
+        canvas.addEventListener('mousemove', (e) => processarDesenho(e, 'mover'));
         window.addEventListener('mouseup', (e) => processarDesenho(e, 'parar'));
-        canvas.addEventListener('touchstart', (e) => processarDesenho(e, 'iniciar'), { passive: false }); canvas.addEventListener('touchmove', (e) => processarDesenho(e, 'mover'), { passive: false });
+        
+        canvas.addEventListener('touchstart', (e) => processarDesenho(e, 'iniciar'), { passive: false }); 
+        canvas.addEventListener('touchmove', (e) => processarDesenho(e, 'mover'), { passive: false });
         window.addEventListener('touchend', (e) => processarDesenho(e, 'parar'));
-    }
     extrairDadosEspecificos() { return { desenho: this.elemento.querySelector('canvas').toDataURL('image/webp', 0.5) }; }
 }
 
