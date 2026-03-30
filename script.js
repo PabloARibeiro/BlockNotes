@@ -2,8 +2,8 @@
 let zIndexGlobal = 1;
 let gridAtivado = false;
 const TAMANHO_GRID = 50; 
-let escalaWorkspace = 1; // Variável vital para o novo zoom
-let panX = 0; // Posição do papel na tela
+let escalaWorkspace = 1; 
+let panX = 0; 
 let panY = 0;
 
 // --- CAMADA DE PERSISTÊNCIA (STORAGE SERVICE) ---
@@ -19,7 +19,7 @@ class StorageService {
     }
 }
 
-// --- ARQUITETURA DE BLOCOS (OOP) ---
+// --- ARQUITETURA DE BLOCOS ---
 class Bloco {
     constructor(dados, tipo, permiteCores = true) {
         this.tipo = tipo; 
@@ -41,8 +41,6 @@ class Bloco {
     configurarEstilosIniciais() {
         this.elemento.style.top = this.dados.top || '100px'; 
         this.elemento.style.left = this.dados.left || '100px';
-        
-        // NOVO TAMANHO PADRÃO: 300x200 (6x4 no grid de 50px)
         this.elemento.style.width = this.dados.width || '300px'; 
         this.elemento.style.height = this.dados.height || '200px';
         
@@ -70,10 +68,7 @@ class Bloco {
                 <input type="color" class="cor-fundo" value="${this.corFundoPadrao}" title="Cor de Fundo">
                 <input type="color" class="cor-texto" value="${this.corTextoPadrao}" title="Cor do Pincel/Texto">
             </div>` : `<div class="controles-cor"></div>`;
-
         const cabecalho = `<div class="cabecalho">${controlesCorHTML}<button class="btn-excluir"><i class="fa-solid fa-trash"></i></button></div>`;
-        
-        // DE VOLTA ÀS ORIGENS: O gancho clássico no canto inferior direito
         this.elemento.innerHTML = cabecalho + this.getConteudoHTML() + '<div class="redimensionador"></div>';
         this.aplicarRedimensionamento();
     }
@@ -89,7 +84,6 @@ class Bloco {
             const inputFundo = this.elemento.querySelector('.cor-fundo');
             const atualizarFundo = (e) => { this.elemento.style.backgroundColor = e.target.value; salvarBlocos(); };
             inputFundo.addEventListener('input', atualizarFundo); inputFundo.addEventListener('change', atualizarFundo);
-
             const inputTexto = this.elemento.querySelector('.cor-texto');
             const atualizarTexto = (e) => { this.elemento.style.color = e.target.value; salvarBlocos(); };
             inputTexto.addEventListener('input', atualizarTexto); inputTexto.addEventListener('change', atualizarTexto);
@@ -238,13 +232,10 @@ class BlocoDesenho extends Bloco {
         if (this.dados.desenho) { let img = new Image(); img.src = this.dados.desenho; img.onload = () => pincel.drawImage(img, 0, 0); }
 
         const processarDesenho = (e, acao) => {
-            // FIX CRÍTICO: Só previne o comportamento padrão se estiver a INICIAR ou MOVER.
-            // Se dermos preventDefault no 'parar' (touchend), matamos os botões e cliques do app todo!
             if (e.type.includes('touch') && e.cancelable && acao !== 'parar') {
                 e.preventDefault();
             }
 
-            // Se for para parar, apenas desliga o motor e sai (evita cálculos com coordenadas vazias)
             if (acao === 'parar') {
                 if (desenhando) { desenhando = false; salvarBlocos(); }
                 return;
@@ -280,7 +271,6 @@ class BlocoChecklist extends Bloco {
         const titulo = this.dados.titulo || '';
         let tarefasHTML = '';
         
-        // Se já tiver tarefas salvas, carrega. Se não, cria uma linha vazia.
         if (this.dados.tarefas && this.dados.tarefas.length > 0) {
             this.dados.tarefas.forEach(t => {
                 const checked = t.concluida ? 'checked' : '';
@@ -324,7 +314,6 @@ class BlocoChecklist extends Bloco {
             checkbox.addEventListener('change', salvarBlocos);
             texto.addEventListener('input', salvarBlocos);
             
-            // Garante que não arrastamos o bloco ao focar no texto da tarefa
             texto.addEventListener('mousedown', (e) => e.stopPropagation());
             texto.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
@@ -334,10 +323,8 @@ class BlocoChecklist extends Bloco {
             });
         };
 
-        // Amarra eventos aos itens que já foram carregados
         lista.querySelectorAll('.tarefa-item').forEach(amarrarEventosItem);
 
-        // Lógica de adicionar nova tarefa
         btnAdd.addEventListener('click', () => {
             const li = document.createElement('li');
             li.className = 'tarefa-item';
@@ -368,7 +355,6 @@ class BlocoChecklist extends Bloco {
     }
 }
 
-// --- BLOCO DE IMAGEM ---
 class BlocoImagem extends Bloco {
     constructor(dados) { super(dados, 'imagem', false); } 
     
@@ -391,7 +377,6 @@ class BlocoImagem extends Bloco {
         const fileInput = this.elemento.querySelector('input[type="file"]');
         const btnUpload = this.elemento.querySelector('.btn-upload-img');
 
-        // Abre o seletor de arquivos no clique do botão ou duplo clique na área
         const abrirSeletor = () => fileInput.click();
         if (btnUpload) btnUpload.onclick = abrirSeletor;
         area.ondblclick = abrirSeletor;
@@ -404,9 +389,8 @@ class BlocoImagem extends Bloco {
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    // Compressão Mágica: Reduz fotos gigantes para o formato WebP
                     const canvas = document.createElement('canvas');
-                    const MAX_SIZE = 1200; // Limite de resolução
+                    const MAX_SIZE = 1200;
                     let width = img.width, height = img.height;
 
                     if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
@@ -416,11 +400,10 @@ class BlocoImagem extends Bloco {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // Converte para WebP com 70% de qualidade
                     const imgComprimida = canvas.toDataURL('image/webp', 0.7);
                     
                     area.innerHTML = `<img src="${imgComprimida}"><input type="file" accept="image/*" style="display: none;">`;
-                    this.aplicarEventosEspecificos(); // Re-amarra os eventos
+                    this.aplicarEventosEspecificos(); 
                     salvarBlocos();
                 };
                 img.src = event.target.result;
@@ -435,14 +418,13 @@ class BlocoImagem extends Bloco {
     }
 }
 
-// --- BLOCO DE BOOKMARK ---
 class BlocoBookmark extends Bloco {
     constructor(dados) { super(dados, 'bookmark', false); }
 
     getConteudoHTML() {
         const titulo = this.dados.titulo || '';
         const url = this.dados.url || '';
-        const modoEdicao = !url; // Começa editando se não tiver link salvo
+        const modoEdicao = !url;
 
         return `
             <div class="area-bookmark">
@@ -468,7 +450,6 @@ class BlocoBookmark extends Bloco {
         const btnSalvar = this.elemento.querySelector('.bm-salvar');
         const btnEditar = this.elemento.querySelector('.bm-editar');
         
-        // Bloqueia o arrasto ao tentar digitar
         inputTitulo.addEventListener('mousedown', (e) => e.stopPropagation());
         inputUrl.addEventListener('mousedown', (e) => e.stopPropagation());
         inputTitulo.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
@@ -539,7 +520,7 @@ function forcarSnapTodosOsBlocos() {
     salvarBlocos();
 }
 
-// --- LÓGICA DE PAN E ZOOM (VIEWPORT) ---
+// --- LÓGICA DE PAN E ZOOM ---
 const viewport = document.getElementById('viewport');
 const area = document.getElementById('area-trabalho');
 
@@ -570,19 +551,18 @@ const pararPan = () => { isPanning = false; };
 viewport.addEventListener('mousedown', iniciarPan); window.addEventListener('mousemove', moverPan); window.addEventListener('mouseup', pararPan);
 viewport.addEventListener('touchstart', iniciarPan, { passive: true }); window.addEventListener('touchmove', moverPan, { passive: true }); window.addEventListener('touchend', pararPan);
 
-// Zoom com Roda do Mouse
 viewport.addEventListener('wheel', (e) => {
     if (e.target !== viewport && e.target !== area) return;
     e.preventDefault();
-    escalaWorkspace *= e.deltaY > 0 ? 0.9 : 1.1; // 10% de zoom in/out
-    escalaWorkspace = Math.max(0.2, Math.min(escalaWorkspace, 3)); // Limites de zoom
+    escalaWorkspace *= e.deltaY > 0 ? 0.9 : 1.1; 
+    escalaWorkspace = Math.max(0.2, Math.min(escalaWorkspace, 3)); 
     atualizarTransform();
 }, { passive: false });
-// Zoom com Pinça (Touch)
+
 let distInicial = 0;
 viewport.addEventListener('touchmove', (e) => {
     if (e.touches.length === 2) {
-        e.preventDefault(); // Bloqueia o telemóvel de tentar fazer scroll
+        e.preventDefault(); 
         let dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         if (!distInicial) distInicial = dist;
         else {

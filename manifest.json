@@ -1,6 +1,6 @@
 {
-  "name": "BlockNotes",
-  "short_name": "BlockNotes",
+  "name": "BlokNotes",
+  "short_name": "BlokNotes",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#e9ecef",
